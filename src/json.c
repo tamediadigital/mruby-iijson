@@ -6,6 +6,7 @@
 #include "mruby/array.h"
 #include "mruby/hash.h"
 #include "mruby/string.h"
+#include "mruby/numeric.h"
 
 #define E_JSON_PARSER_ERROR (mrb_class_get_under(mrb, mrb_module_get(mrb, "JSON"), "ParserError"))
 
@@ -263,8 +264,10 @@ static int
 json_parse_number(struct json_parser *parser, int ch, mrb_value *result)
 {
   mrb_state *mrb = parser->mrb;
-  mrb_int num;
+  mrb_int num = 0;
+  double num_float = 0;
   int d, sign;
+  int use_float = 0;
 
   if (ch == '-') {
     sign = -1;
@@ -285,19 +288,29 @@ json_parse_number(struct json_parser *parser, int ch, mrb_value *result)
       break;
     }
     if (isdigit(ch)) {
-      if (num == 0) {
+      if (use_float < 1 && num == 0) {
         mrb_raise(mrb, E_JSON_PARSER_ERROR, "leading zeros are not allowed");
       }
       d = (ch - '0') * sign;
-      if (num < MRB_INT_MIN / 10 ||
-          (num == MRB_INT_MIN / 10 && d < MRB_INT_MIN - num * 10) ||
-          num > MRB_INT_MAX / 10 ||
-          (num == MRB_INT_MAX / 10 && d > MRB_INT_MAX - num * 10)) {
-        mrb_raise(mrb, E_JSON_PARSER_ERROR, "integer overflow");
-        return -1;
+      
+      mrb_int prod = 0;
+
+      if( use_float < 1 &&  ( mrb_int_mul_overflow(num, 10, &prod) == TRUE || mrb_int_add_overflow(prod, d, &prod) == TRUE)  ) 
+      {
+          use_float = 1; 
+          num_float = num;
       }
-      num = num * 10 + d;
+      else
+      {
+        num = num * 10 + d;
+      }
+      if(use_float > 0) 
+      {
+        num_float = num_float * 10 + d;
+      }
     } else if (ch == '.' || ch == 'e' || ch == 'E') {
+      if( use_float > 0)
+        mrb_raise(mrb, E_JSON_PARSER_ERROR, "parsing of large floats is not implemented yet");
       return json_parse_number2(parser, ch, result, num, sign);
     } else if (json_delimiter_p(ch)) {
       json_ungetc(parser);
@@ -306,7 +319,13 @@ json_parse_number(struct json_parser *parser, int ch, mrb_value *result)
       mrb_raise(mrb, E_JSON_PARSER_ERROR, "invalid number");
     }
   }
-  *result = mrb_fixnum_value(num);
+  if(use_float < 1)
+  {
+    *result = mrb_fixnum_value(num);
+  } else
+  {
+    *result = mrb_float_value(mrb, num_float);
+  }
   return 1;
 }
 
