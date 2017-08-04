@@ -102,13 +102,12 @@ assert('JSON.parse: text from RFC4726') do
   assert_equal hash, JSON.parse(JSON.generate(hash))
 end
 
-assert('JSON.parse: Number that is bigger than MRB_INT_MAX') do 
-
+assert('JSON.parse: parsing a Number that is bigger than MRB_INT_MAX') do 
   assert_equal 2147483647, JSON.load("2147483647")
   assert_equal 2147483648, JSON.load("2147483648")
   assert_equal 9223372036854775807, JSON.load("9223372036854775807")   #fails if #define MRB_INT64
-  assert_equal 0, JSON.load("9223372036854775808") - 9223372036854775808.0
-   #assert_equal 9223372036854775808.123, JSON.load("9223372036854775808.123")
+  assert_equal 9223372036854775808.to_s, JSON.load("9223372036854775808").to_s
+  assert_equal 9223372036854775808.123.to_s, JSON.load("9223372036854775808.123").to_s 
 end
 
 assert('JSON::ParserError') do

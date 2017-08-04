@@ -34,7 +34,7 @@ static int json_whitespace_p(char ch);
 
 static int json_parse_array(struct json_parser *, mrb_value *);
 static int json_parse_object(struct json_parser *, mrb_value *);
-static int json_parse_number2(struct json_parser *, int, mrb_value *, int, int);
+static int json_parse_number2(struct json_parser *, int, mrb_value *, double, int);
 static int json_parse_string(struct json_parser *, mrb_value *);
 static int json_parse_value(struct json_parser *, mrb_value *);
 
@@ -310,8 +310,8 @@ json_parse_number(struct json_parser *parser, int ch, mrb_value *result)
       }
     } else if (ch == '.' || ch == 'e' || ch == 'E') {
       if( use_float > 0)
-        mrb_raise(mrb, E_JSON_PARSER_ERROR, "parsing of large floats is not implemented yet");
-      return json_parse_number2(parser, ch, result, num, sign);
+        return json_parse_number2(parser, ch, result, num_float, sign);
+      return json_parse_number2(parser, ch, result, num, sign); //auto convert
     } else if (json_delimiter_p(ch)) {
       json_ungetc(parser);
       break;
@@ -330,7 +330,7 @@ json_parse_number(struct json_parser *parser, int ch, mrb_value *result)
 }
 
 static int
-json_parse_number2(struct json_parser *parser, int ch, mrb_value *result, int num, int sign)
+json_parse_number2(struct json_parser *parser, int ch, mrb_value *result, double num, int sign)
 {
   mrb_state *mrb = parser->mrb;
   double d;
@@ -341,7 +341,7 @@ json_parse_number2(struct json_parser *parser, int ch, mrb_value *result, int nu
    * "-"? ("0" | [1-9] digit* ) ("." digit+ )? ([eE][-+] digit+)?
    * state:                      000 111111     22223333 444444
    */
-  i = snprintf(buf, sizeof(buf), "%s%d%c",
+  i = snprintf(buf, sizeof(buf), "%s%f%c",
       (num == 0 && sign < 0) ? "-" : "",
       num, ch);
   if (ch == '.')
